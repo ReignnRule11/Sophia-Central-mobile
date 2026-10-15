@@ -12,8 +12,9 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
     try {
       const resp = await client.post('/auth/login', { email, password });
-      const { access_token } = resp.data;
-      await SecureStore.setItemAsync('auth_token', access_token);
+      const { access_token, refresh_token } = resp.data;
+      if (access_token) await SecureStore.setItemAsync('auth_token', access_token);
+      if (refresh_token) await SecureStore.setItemAsync('refresh_token', refresh_token);
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (err) {
       console.log(err);

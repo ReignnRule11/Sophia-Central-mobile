@@ -18,11 +18,49 @@ type SelectedFile = {
   mimeType?: string;
 };
 
+async function uploadBlobWithProgress(uploadUrl: string, blob: any, mimeType: string, onProgress: (p: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    try {
+      xhr.setRequestHeader('Content-Type', mimeType);
+    } catch (e) {
+      // some presigned URLs do not allow setting content-type header explicitly
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+
+    if (xhr.upload && typeof xhr.upload.onprogress !== 'undefined') {
+      xhr.upload.onprogress = (event: ProgressEvent) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+    }
+
+    xhr.send(blob);
+  });
+}
+
+function sleep(ms: number) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
 export default function UploadScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const handlePickFile = async () => {
     try {
@@ -70,6 +108,7 @@ export default function UploadScreen() {
     }
 
     setUploading(true);
+    setProgress(0);
 
     try {
       const resourcePayload = {
@@ -92,27 +131,51 @@ export default function UploadScreen() {
       });
 
       const { uploadUrl, fileKey } = presignResponse.data;
+      if (!uploadUrl || !fileKey) throw new Error('Invalid presign response');
 
+      // download file into blob
       const fileResponse = await fetch(selectedFile.uri);
       const fileBlob = await fileResponse.blob();
 
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': selectedFile.mimeType || 'application/octet-stream',
-        },
-        body: fileBlob,
-      });
+      // upload with retries and progress
+      const MAX_ATTEMPTS = 3;
+      let attempt = 0;
+      let uploaded = false;
 
-      await client.post('/storage/confirm-upload', {
-        fileKey,
-        resourceId,
-      });
+      while (!uploaded && attempt < MAX_ATTEMPTS) {
+        attempt += 1;
+        try {
+          await uploadBlobWithProgress(uploadUrl, fileBlob, selectedFile.mimeType || 'application/octet-stream', (p) => setProgress(p));
+          uploaded = true;
+        } catch (err) {
+          console.log(`Upload attempt ${attempt} failed`, err);
+          if (attempt >= MAX_ATTEMPTS) throw err;
+          // exponential backoff
+          await sleep(500 * Math.pow(2, attempt));
+        }
+      }
+
+      // confirm upload with backend (with retry)
+      const CONFIRM_ATTEMPTS = 3;
+      let confirmAttempt = 0;
+      let confirmed = false;
+      while (!confirmed && confirmAttempt < CONFIRM_ATTEMPTS) {
+        confirmAttempt += 1;
+        try {
+          await client.post('/storage/confirm-upload', { fileKey, resourceId });
+          confirmed = true;
+        } catch (err) {
+          console.log(`Confirm attempt ${confirmAttempt} failed`, err);
+          if (confirmAttempt >= CONFIRM_ATTEMPTS) throw err;
+          await sleep(500 * Math.pow(2, confirmAttempt));
+        }
+      }
 
       Alert.alert('Upload successful', 'Your file has been uploaded and linked to the resource.');
       setTitle('');
       setDescription('');
       setSelectedFile(null);
+      setProgress(0);
     } catch (error) {
       console.log(error);
       Alert.alert('Upload failed', 'Something went wrong while uploading. Please try again.');
@@ -145,7 +208,7 @@ export default function UploadScreen() {
       <View style={{ height: 12 }} />
 
       <Button
-        title={uploading ? 'Uploading...' : 'Upload Resource'}
+        title={uploading ? `Uploading... ${progress}%` : 'Upload Resource'}
         onPress={handleUpload}
         disabled={uploading}
       />

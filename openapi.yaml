@@ -1,0 +1,152 @@
+openapi: 3.0.3
+info:
+  title: Sophia Central Mobile API (partial)
+  version: '1.0.0'
+  description: OpenAPI spec for the endpoints used by the mobile app (presign/confirm upload, auth refresh, resources)
+servers:
+  - url: https://api.sophia-central.com
+paths:
+  /auth/login:
+    post:
+      summary: Login and retrieve access + refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+  /auth/refresh:
+    post:
+      summary: Refresh access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: new tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+  /resources:
+    post:
+      summary: Create a resource record (returns resource id)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+  /storage/presigned-url:
+    post:
+      summary: Request presigned upload URL for a file
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                mimeType:
+                  type: string
+                size:
+                  type: integer
+      responses:
+        '200':
+          description: presigned url
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                  fileKey:
+                    type: string
+                  expiresIn:
+                    type: integer
+                  method:
+                    type: string
+  /storage/confirm-upload:
+    post:
+      summary: Confirm that file was uploaded to presigned URL and attach to resource
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fileKey:
+                  type: string
+                resourceId:
+                  type: string
+      responses:
+        '200':
+          description: confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fileUrl:
+                    type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
