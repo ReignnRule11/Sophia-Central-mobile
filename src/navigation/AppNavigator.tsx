@@ -1,35 +1,35 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import HomeScreen from '../screens/HomeScreen';
-import SearchScreen from '../screens/SearchScreen';
-import UploadScreen from '../screens/UploadScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
-import RegisterScreen from '../screens/RegisterScreen';
+import HomeScreen from '../screens/HomeScreen';
 import ResourceDetailScreen from '../screens/ResourceDetailScreen';
+import UploadScreen from '../screens/UploadScreen';
+import PointsScreen from '../screens/PointsScreen';
+import AIChatScreen from '../screens/AIChatScreen';
 
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
-
-function MainTabs() {
-  return (
-    <Tab.Navigator>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen name="Upload" component={UploadScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-    </Tab.Navigator>
-  );
-}
 
 export default function AppNavigator() {
+  const { token, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
   return (
-    <Stack.Navigator initialRouteName="Login">
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-      <Stack.Screen name="ResourceDetail" component={ResourceDetailScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {token ? (
+        <>
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="ResourceDetail" component={ResourceDetailScreen} />
+          <Stack.Screen name="Upload" component={UploadScreen} />
+          <Stack.Screen name="Points" component={PointsScreen} />
+          <Stack.Screen name="AIChat" component={AIChatScreen} />
+        </>
+      ) : (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      )}
     </Stack.Navigator>
   );
 }

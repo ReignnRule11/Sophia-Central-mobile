@@ -1,43 +1,133 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import client from '../api/client';
-import * as SecureStore from 'expo-secure-store';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+} from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen() {
+  const { signIn, register } = useAuth();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setLoading(true);
+  const handleSubmit = async () => {
     try {
-      const resp = await client.post('/auth/login', { email, password });
-      const { access_token, refresh_token } = resp.data;
-      if (access_token) await SecureStore.setItemAsync('auth_token', access_token);
-      if (refresh_token) await SecureStore.setItemAsync('refresh_token', refresh_token);
-      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-    } catch (err) {
-      console.log(err);
-      alert('Login failed');
+      setLoading(true);
+      if (mode === 'login') {
+        await signIn(email, password);
+      } else {
+        await register({ firstName, lastName, email, password });
+      }
+    } catch (error: any) {
+      Alert.alert('Authentication failed', error?.response?.data?.message ?? 'Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Sophia Central</Text>
-      <TextInput placeholder="Email" style={styles.input} value={email} onChangeText={setEmail} />
-      <TextInput placeholder="Password" secureTextEntry style={styles.input} value={password} onChangeText={setPassword} />
-      <Button title={loading ? 'Signing in...' : 'Sign In'} onPress={handleLogin} disabled={loading} />
-      <View style={{ height: 12 }} />
-      <Button title="Register" onPress={() => navigation.navigate('Register')} />
-    </View>
+      <Text style={styles.subtitle}>Study smarter. Research faster.</Text>
+
+      {mode === 'register' && (
+        <>
+          <TextInput
+            placeholder="First name"
+            value={firstName}
+            onChangeText={setFirstName}
+            style={styles.input}
+          />
+          <TextInput
+            placeholder="Last name"
+            value={lastName}
+            onChangeText={setLastName}
+            style={styles.input}
+          />
+        </>
+      )}
+
+      <TextInput
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        style={styles.input}
+      />
+
+      <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit} disabled={loading}>
+        <Text style={styles.primaryButtonText}>{loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create account'}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setMode(mode === 'login' ? 'register' : 'login')}>
+        <Text style={styles.switchText}>
+          {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Login'}
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 16 },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 24, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 12, marginBottom: 12, borderRadius: 6 }
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#0B1220',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#94A3B8',
+    marginBottom: 28,
+  },
+  input: {
+    backgroundColor: '#111827',
+    color: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  primaryButton: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  switchText: {
+    color: '#A5B4FC',
+    marginTop: 18,
+    textAlign: 'center',
+  },
 });
