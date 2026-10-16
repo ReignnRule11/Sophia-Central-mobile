@@ -1,35 +1,61 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import client from '../api/client';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
-export default function ProfileScreen({ navigation }: any) {
-  const [profile, setProfile] = useState<any>(null);
-
-  useEffect(() => { fetchProfile(); }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const resp = await client.get('/users/me');
-      setProfile(resp.data);
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const handleLogout = async () => {
-    await SecureStore.deleteItemAsync('auth_token');
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  };
+export default function ProfileScreen() {
+  const { user, signOut } = useAuth();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{profile ? `${profile.firstName} ${profile.lastName}` : 'Profile'}</Text>
-      <Button title="Refresh" onPress={fetchProfile} />
-      <View style={{ height: 12 }} />
-      <Button title="Logout" onPress={handleLogout} />
-    </View>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 20 }}>
+      <Text style={styles.title}>Profile</Text>
+      <View style={styles.card}>
+        <Text style={styles.name}>{user?.firstName ?? 'Student'} {user?.lastName ?? 'User'}</Text>
+        <Text style={styles.email}>{user?.email ?? 'student@sophia.example'}</Text>
+      </View>
+
+      <TouchableOpacity style={styles.primaryButton} onPress={signOut}>
+        <Text style={styles.primaryButtonText}>Log out</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({ container: { flex: 1, padding: 12 }, title: { fontSize: 20, fontWeight: '700', marginBottom: 12 } });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0B1220',
+  },
+  title: {
+    color: '#F8FAFC',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    marginBottom: 20,
+  },
+  name: {
+    color: '#F8FAFC',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  email: {
+    color: '#94A3B8',
+    marginTop: 6,
+  },
+  primaryButton: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+});

@@ -12,15 +12,14 @@ export default function UploadScreen() {
   const handleUpload = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.post('/resources', {
+      await apiClient.post('/resources', {
         title,
         course,
         topic,
         description,
         type: 'lecture_notes',
       });
-
-      Alert.alert('Upload created', 'Your resource has been posted for moderation.');
+      Alert.alert('Success', 'Resource submitted for moderation.');
       setTitle('');
       setCourse('');
       setTopic('');
@@ -35,10 +34,9 @@ export default function UploadScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Upload resource</Text>
-
-      <TextInput placeholder="Title" value={title} onChangeText={setTitle} style={styles.input} />
-      <TextInput placeholder="Course" value={course} onChangeText={setCourse} style={styles.input} />
-      <TextInput placeholder="Topic" value={topic} onChangeText={setTopic} style={styles.input} />
+      <TextInput placeholder="Title" value={title} onChangeText={setTitle} style={styles.input} placeholderTextColor="#94A3B8" />
+      <TextInput placeholder="Course" value={course} onChangeText={setCourse} style={styles.input} placeholderTextColor="#94A3B8" />
+      <TextInput placeholder="Topic" value={topic} onChangeText={setTopic} style={styles.input} placeholderTextColor="#94A3B8" />
       <TextInput
         placeholder="Description"
         value={description}
@@ -46,8 +44,8 @@ export default function UploadScreen() {
         multiline
         numberOfLines={5}
         style={[styles.input, styles.textArea]}
+        placeholderTextColor="#94A3B8"
       />
-
       <TouchableOpacity style={styles.primaryButton} onPress={handleUpload} disabled={loading}>
         <Text style={styles.primaryButtonText}>{loading ? 'Uploading...' : 'Submit resource'}</Text>
       </TouchableOpacity>
@@ -65,7 +63,7 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   input: {
     backgroundColor: '#111827',

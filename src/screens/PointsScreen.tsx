@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+
+const transactions = [
+  { id: '1', label: 'Uploaded lecture notes', value: '+120' },
+  { id: '2', label: 'Referred a friend', value: '+50' },
+  { id: '3', label: 'AI summary', value: '-5' },
+];
 
 export default function PointsScreen() {
   return (
@@ -7,16 +13,17 @@ export default function PointsScreen() {
       <Text style={styles.title}>Wisdom Points</Text>
       <Text style={styles.balance}>850</Text>
 
-      <Text style={styles.section}>Earned</Text>
-      <TouchableOpacity style={styles.card}>
-        <Text style={styles.cardTitle}>Uploaded lecture notes</Text>
-        <Text style={styles.cardValue}>+120</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.card}>
-        <Text style={styles.cardTitle}>Referred a friend</Text>
-        <Text style={styles.cardValue}>+50</Text>
-      </TouchableOpacity>
+      <Text style={styles.section}>Recent activity</Text>
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{item.label}</Text>
+            <Text style={[styles.cardValue, { color: item.value.startsWith('+') ? '#34D399' : '#FCA5A5' }]}>{item.value}</Text>
+          </View>
+        )}
+      />
     </View>
   );
 }
@@ -41,7 +48,7 @@ const styles = StyleSheet.create({
   },
   section: {
     color: '#94A3B8',
-    marginBottom: 10,
+    marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -52,14 +59,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#1F2937',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   cardTitle: {
     color: '#F8FAFC',
     fontSize: 16,
   },
   cardValue: {
-    color: '#34D399',
-    marginTop: 8,
     fontWeight: '700',
     fontSize: 18,
   },
