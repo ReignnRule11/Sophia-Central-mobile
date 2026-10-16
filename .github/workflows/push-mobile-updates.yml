@@ -20,34 +20,136 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Create/update prepared mobile files
+      - name: Create directories
         run: |
-          # Create directories
-          mkdir -p src/screens src/api src/config src/utils src/__tests__ .github/workflows backend_examples
+          mkdir -p src/config src/api src/utils src/screens src/__tests__ backend_examples
 
-          # Upload config
+      - name: Write uploadConfig
+        run: |
           cat > src/config/uploadConfig.ts <<'EOF'
           export const UPLOAD_CONFIG = {
             CHUNK_SIZE: 5 * 1024 * 1024, // 5 MB
-            MULTIPART_THRESHOLD: 10 * 1024 * 1024, // 10 MB
+            MULTIPART_THRESHOLD: 10 * 1024 * 1024, // 10 MB - use multipart when file > 10MB
             MAX_UPLOAD_ATTEMPTS: 3,
             MAX_CONFIRM_ATTEMPTS: 3,
             BACKOFF_BASE_MS: 500,
           };
           EOF
 
-          # Typed API wrapper
+      - name: Write api client (client.ts)
+        run: |
+          cat > src/api/client.ts <<'EOF'
+          import axios from 'axios';
+          import * as SecureStore from 'expo-secure-store';
+          import Constants from 'expo-constants';
+
+          const API_URL = Constants.manifest?.extra?.apiUrl || process.env.API_URL || 'http://localhost:3000';
+          const client = axios.create({ baseURL: API_URL, timeout: 30000, headers: { 'Content-Type': 'application/json' } });
+
+          let isRefreshing = false;
+          let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
+
+          const processQueue = (error: any, token: string | null = null) => {
+            failedQueue.forEach((prom) => {
+              if (error) prom.reject(error);
+              else prom.resolve(token as string);
+            });
+            failedQueue = [];
+          };
+
+          client.interceptors.request.use(async (config) => {
+            try {
+              const token = await SecureStore.getItemAsync('auth_token');
+              if (token && config.headers) config.headers.Authorization = `Bearer ${token}`;
+            } catch (e) {}
+            return config;
+          });
+
+          client.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+              const originalRequest = error?.config;
+
+              if (error?.response?.status === 401 && !originalRequest?._retry) {
+                if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
+                  await SecureStore.deleteItemAsync('auth_token');
+                  await SecureStore.deleteItemAsync('refresh_token');
+                  return Promise.reject(error);
+                }
+
+                if (isRefreshing) {
+                  return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                  })
+                    .then((token) => {
+                      if (originalRequest.headers) originalRequest.headers.Authorization = `Bearer ${token}`;
+                      return client(originalRequest);
+                    })
+                    .catch((err) => Promise.reject(err));
+                }
+
+                originalRequest._retry = true;
+                isRefreshing = true;
+
+                try {
+                  const refreshToken = await SecureStore.getItemAsync('refresh_token');
+                  if (!refreshToken) throw new Error('No refresh token available');
+
+                  const resp = await axios.post(`${API_URL}/auth/refresh`, { refresh_token: refreshToken });
+                  const newToken = resp.data?.access_token;
+                  const newRefresh = resp.data?.refresh_token;
+
+                  if (!newToken) throw new Error('Refresh failed: no access token returned');
+
+                  await SecureStore.setItemAsync('auth_token', newToken);
+                  if (newRefresh) await SecureStore.setItemAsync('refresh_token', newRefresh);
+
+                  processQueue(null, newToken);
+                  if (originalRequest.headers) originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                  return client(originalRequest);
+                } catch (err) {
+                  processQueue(err, null);
+                  await SecureStore.deleteItemAsync('auth_token');
+                  await SecureStore.deleteItemAsync('refresh_token');
+                  return Promise.reject(err);
+                } finally {
+                  isRefreshing = false;
+                }
+              }
+
+              return Promise.reject(error);
+            }
+          );
+
+          export default client;
+          EOF
+
+      - name: Write typed api wrapper (api.ts)
+        run: |
           cat > src/api/api.ts <<'EOF'
           import client from './client';
 
-          export type ResourceCreateRequest = { title: string; description?: string; type?: string };
+          export type ResourceCreateRequest = {
+            title: string;
+            description?: string;
+            type?: string;
+          };
+
           export type ResourceCreateResponse = { id: string };
+
           export type PresignResponse = { uploadUrl: string; fileKey: string; expiresIn?: number; method?: string };
-          export type InitiateMultipartResponse = { uploadId: string; fileKey: string; parts: { partNumber: number; uploadUrl: string }[]; };
-          export type CompleteMultipartRequest = { uploadId: string; fileKey: string; parts: { partNumber: number; etag: string }[]; };
+
+          export type InitiateMultipartResponse = {
+            uploadId: string;
+            fileKey: string;
+            parts: { partNumber: number; uploadUrl: string }[];
+          };
+
+          export type CompleteMultipartRequest = {
+            uploadId: string;
+            fileKey: string;
+            parts: { partNumber: number; etag: string }[];
+          };
 
           export async function createResource(payload: ResourceCreateRequest): Promise<ResourceCreateResponse> {
             const resp = await client.post('/resources', payload);
@@ -85,7 +187,8 @@ jobs:
           }
           EOF
 
-          # chunk util
+      - name: Write chunk util
+        run: |
           cat > src/utils/chunk.ts <<'EOF'
           export function splitArrayBufferIntoChunks(buffer: ArrayBuffer, chunkSize: number): ArrayBuffer[] {
             const result: ArrayBuffer[] = [];
@@ -100,7 +203,8 @@ jobs:
           }
           EOF
 
-          # UploadScreen (progress, cancel, multipart client)
+      - name: Write UploadScreen (core)
+        run: |
           cat > src/screens/UploadScreen.tsx <<'EOF'
           import React, { useState, useRef } from 'react';
           import {
@@ -121,7 +225,12 @@ jobs:
           import { createResource, presignUrl, confirmUpload, initiateMultipart, completeMultipart } from '../api/api';
           import { splitArrayBufferIntoChunks } from '../utils/chunk';
 
-          type SelectedFile = { uri: string; name?: string; size?: number; mimeType?: string; };
+          type SelectedFile = {
+            uri: string;
+            name?: string;
+            size?: number;
+            mimeType?: string;
+          };
 
           async function uploadBlobWithProgressXHR(uploadUrl: string, blob: Blob, mimeType: string, onProgress: (p: number) => void, signal?: { aborted: boolean; abort: () => void }) {
             return new Promise<void>((resolve, reject) => {
@@ -240,53 +349,5 @@ jobs:
                   let confirmed = false;
                   while (!confirmed && confirmAttempt < UPLOAD_CONFIG.MAX_CONFIRM_ATTEMPTS) {
                     confirmAttempt += 1;
-                    try { await confirmUpload(fileKey, resourceId); confirmed = true; } catch (err) {
-                      if (confirmAttempt >= UPLOAD_CONFIG.MAX_CONFIRM_ATTEMPTS) throw err;
-                      await sleep(UPLOAD_CONFIG.BACKOFF_BASE_MS * Math.pow(2, confirmAttempt));
-                    }
-                  }
-                }
-
-                Alert.alert('Upload successful');
-                setTitle(''); setDescription(''); setSelectedFile(null); setProgress(0);
-              } catch (err) {
-                console.log(err); Alert.alert('Upload failed');
-              } finally {
-                setUploading(false); abortRef.current = null;
-              }
-            };
-
-            return (
-              <View style={styles.container}>
-                <Text style={styles.title}>Upload Resource</Text>
-                <TextInput placeholder="Title" style={styles.input} value={title} onChangeText={setTitle} />
-                <TextInput placeholder="Description" style={styles.input} value={description} multiline onChangeText={setDescription} />
-                <Button title={selectedFile ? `Selected: ${selectedFile.name}` : 'Select File'} onPress={handlePickFile} />
-                <View style={{ height: 12 }} />
-                {Platform.OS === 'android' ? (uploading && <ProgressBarAndroid styleAttr="Horizontal" indeterminate={false} progress={progress/100} />) : (uploading && <ProgressViewIOS progress={progress/100} />)}
-                <View style={{ height: 8 }} />
-                <Button title={uploading ? `Uploading... ${progress}%` : 'Upload Resource'} onPress={handleUpload} disabled={uploading} />
-                <View style={{ height: 8 }} />
-                {uploading && <Button title="Cancel Upload" onPress={handleCancel} color="#d9534f" />}
-                {uploading && <ActivityIndicator style={{ marginTop: 16 }} size="small" />}
-              </View>
-            );
-          }
-
-          const styles = StyleSheet.create({
-            container: { flex: 1, padding: 12 },
-            title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
-            input: { borderWidth: 1, borderColor: '#ddd', padding: 12, marginBottom: 12, borderRadius: 6 },
-          });
-          EOF
-
-      - name: Commit and push prepared changes
-        env:
-          GIT_TOKEN: ${{ secrets.PUSH_TOKEN }}
-        run: |
-          git config user.email "ci@yourteam"
-          git config user.name "ci-bot"
-          git remote set-url origin https://x-access-token:${GIT_TOKEN}@github.com/${{ github.repository }}.git
-          git add .
-          git commit -m "chore: add multipart upload client, progress UI and config" || echo "no changes to commit"
-          git push origin HEAD:main
+                    try { await confirmUpload(fileKey,*
+
