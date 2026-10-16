@@ -1,20 +1,20 @@
 # Sophia Central Mobile
 
-Sophia Central Mobile is an Expo-based React Native application scaffold for the Sophia Central platform. The repository currently contains the mobile app shell, navigation structure, API client utilities, upload-related configuration, and a set of screen modules that provide the foundation for a mobile client.
+Sophia Central Mobile is the mobile client repository for the Sophia Central platform. Built with React Native and Expo, it provides the foundation for mobile screen flows, navigation, API integration, and upload-related client logic.
 
-This README reflects the repository as it exists today and avoids describing features that are not clearly implemented in the codebase.
+This repository is structured as a mobile application scaffold and includes the main navigation, API utilities, and a set of modular screens that support app functionality and integration with a backend service.
 
-## Overview
+## Product overview
 
-The project includes:
-- Expo + React Native app setup
-- React Navigation structure with authentication and main app flows
-- API client with token handling and refresh logic
-- Upload configuration and helper utilities
-- Screen modules for login, registration, home, search, upload, profile, and resource details
-- OpenAPI contract draft for API interaction patterns
+The app currently includes:
+- Expo-based React Native setup
+- Navigation for authentication and application screens
+- API utilities for client requests and token refresh handling
+- Upload-related configuration and chunking helpers
+- Screen modules for authentication, resource discovery, detail views, and upload actions
+- A draft OpenAPI contract for mobile-facing endpoints
 
-## Repository structure
+## Project structure
 
 ```text
 .
@@ -26,8 +26,10 @@ The project includes:
 ├── README.md
 ├── app.json
 ├── jest.config.js
+├── LICENSE
 ├── openapi.yaml
 ├── package.json
+├── tsconfig.json
 ├── src/
 │   ├── __tests__/
 │   │   └── chunk.test.ts
@@ -49,61 +51,63 @@ The project includes:
 │   │   └── UploadScreen.tsx
 │   └── utils/
 │       └── chunk.ts
-├── tsconfig.json
-├── LICENSE
-└── .gitignore
+├── .gitignore
+└── .env.example
 ```
 
-## Key application files
+## Key modules
 
-### App bootstrap
-- `App.tsx` wraps the app in `NavigationContainer` and renders the navigation root.
+### Application shell
+- `App.tsx` sets up the main React Native app container and renders the navigation root.
 
 ### Navigation
-- `src/navigation/AppNavigator.tsx` defines the app navigation stack and bottom tab structure.
+- `src/navigation/AppNavigator.tsx` defines the app navigation structure, including stack and tab flows.
 
-### API layer
-- `src/api/client.ts` creates the Axios client and adds request/response interceptors for auth token handling and refresh logic.
-- `src/api/api.ts` exposes helper methods for resource creation, upload flow calls, and auth-related requests.
+### API integration
+- `src/api/client.ts` contains the Axios client with request and response interceptors for authentication and token refresh.
+- `src/api/api.ts` exposes helper methods for resource creation, upload-related requests, and auth actions.
 
-### Upload utilities
-- `src/config/uploadConfig.ts` stores upload thresholds and retry settings.
-- `src/utils/chunk.ts` contains chunk-splitting logic for upload processing.
+### Upload support
+- `src/config/uploadConfig.ts` stores upload thresholds, retry values, and related configuration.
+- `src/utils/chunk.ts` provides chunk splitting logic for upload processing.
 
 ### Screens
-- `src/screens/LoginScreen.tsx` and `RegisterScreen.tsx` provide auth UI placeholders and requests.
-- `src/screens/HomeScreen.tsx` loads resource listings.
-- `src/screens/SearchScreen.tsx` offers a simple search UI.
-- `src/screens/UploadScreen.tsx` contains the upload workflow entry point.
-- `src/screens/ProfileScreen.tsx` displays profile and logout actions.
-- `src/screens/ResourceDetailScreen.tsx` shows detail data for a selected resource.
+- `src/screens/LoginScreen.tsx` handles the sign-in flow.
+- `src/screens/RegisterScreen.tsx` provides account creation UI.
+- `src/screens/HomeScreen.tsx` loads a list of resources.
+- `src/screens/SearchScreen.tsx` offers a simple search interface.
+- `src/screens/UploadScreen.tsx` contains the upload flow entry point.
+- `src/screens/ProfileScreen.tsx` exposes account/profile actions.
+- `src/screens/ResourceDetailScreen.tsx` displays a selected resource detail view.
 
-### API contract reference
-- `openapi.yaml` contains a draft OpenAPI document describing some mobile-facing endpoints and upload-related flows.
+### Contract and config reference
+- `openapi.yaml` is a draft OpenAPI document for API interactions relevant to the app.
+- `app.json` contains Expo configuration.
+- `.env.example` provides sample environment values.
 
 ## Getting started
 
 ### Prerequisites
 - Node.js 18 or newer
 - npm
-- Expo CLI (optional, but commonly used for local development)
-- A backend service that exposes the endpoints used by the app
+- Expo CLI (optional, but commonly used during local development)
+- A backend service exposing the endpoints used by the app
 
-### Install dependencies
+### Installation
 
 ```bash
 npm install
 ```
 
-### Start the app
+### Run locally
 
 ```bash
 npm run start
 ```
 
-This starts the Expo development server. You can then run the app on a simulator or device using the usual Expo workflows.
+This starts the Expo development server. From there, you can run the app in the simulator or on a connected device using the standard Expo workflow.
 
-### Common development commands
+### Useful commands
 
 ```bash
 npm run web
@@ -112,23 +116,21 @@ npm run ios
 npm run lint
 ```
 
-## Environment and configuration
+## Configuration
 
-The project includes `.env.example`, which contains example values for application configuration:
+The project includes a sample environment file at `.env.example`:
 
 ```env
 API_URL=https://api.sophia-central.com
 APP_VERSION=0.1.0
 ```
 
-Runtime configuration can also be supplied via `app.json` under `expo.extra`.
+The app may also read values from `app.json` under `expo.extra` depending on the runtime setup.
 
 ## Notes
 
-- The repository includes a basic mobile app scaffold and supporting utilities, but not every screen or integration is necessarily complete or production-ready.
-- Some behavior is structured around backend endpoints defined or referenced in `openapi.yaml` and the API helper files.
-- The app currently includes placeholder or scaffold-level implementations in several places; these should be validated against the actual backend contract before use in production.
+This repository is a working mobile app foundation, but it should be treated as a scaffold and integration layer rather than a fully production-hardened application. Some screens and behaviors are present in a structured form and may require validation against the backend service and the actual product requirements before production use.
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+This project is licensed under the MIT License. See `LICENSE` for more information.
