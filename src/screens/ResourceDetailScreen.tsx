@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 
 export default function ResourceDetailScreen() {
@@ -14,16 +14,6 @@ export default function ResourceDetailScreen() {
     );
   }
 
-  const openResource = async () => {
-    const url = resource.url ?? 'https://sophia-central.com/resources';
-    const supported = await Linking.canOpenURL(url);
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      Alert.alert('Unable to open resource', 'No browser was found to open this URL.');
-    }
-  };
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 20 }}>
       <Text style={styles.title}>{resource.title}</Text>
@@ -35,15 +25,7 @@ export default function ResourceDetailScreen() {
         {resource.description ?? 'This resource contains academic material relevant to the selected course and topic.'}
       </Text>
 
-      <View style={styles.badgeRow}>
-        {(resource.tags ?? ['Verified', 'Academic', 'Reliable']).map((tag: string) => (
-          <View key={tag} style={styles.badge}>
-            <Text style={styles.badgeText}>{tag}</Text>
-          </View>
-        ))}
-      </View>
-
-      <TouchableOpacity style={styles.primaryButton} onPress={openResource}>
+      <TouchableOpacity style={styles.primaryButton} onPress={() => Alert.alert('Open', 'Open resource in a viewer or browser')}>
         <Text style={styles.primaryButtonText}>Open resource</Text>
       </TouchableOpacity>
 
@@ -79,27 +61,6 @@ const styles = StyleSheet.create({
   description: {
     color: '#E5E7EB',
     lineHeight: 22,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 18,
-    marginBottom: 8,
-  },
-  badge: {
-    backgroundColor: '#111827',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  badgeText: {
-    color: '#A5B4FC',
-    fontSize: 11,
-    fontWeight: '600',
   },
   primaryButton: {
     marginTop: 24,

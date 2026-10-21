@@ -8,26 +8,9 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 20 }}>
       <Text style={styles.title}>Profile</Text>
-
       <View style={styles.card}>
         <Text style={styles.name}>{user?.firstName ?? 'Student'} {user?.lastName ?? 'User'}</Text>
         <Text style={styles.email}>{user?.email ?? 'student@sophia.example'}</Text>
-        <Text style={styles.meta}>{user?.institution ?? 'University of Lagos'}</Text>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>24</Text>
-          <Text style={styles.statLabel}>Saved</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>8</Text>
-          <Text style={styles.statLabel}>Uploads</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>850</Text>
-          <Text style={styles.statLabel}>Points</Text>
-        </View>
       </View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={signOut}>
@@ -64,34 +47,6 @@ const styles = StyleSheet.create({
   email: {
     color: '#94A3B8',
     marginTop: 6,
-  },
-  meta: {
-    color: '#A5B4FC',
-    marginTop: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: '#F8FAFC',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  statLabel: {
-    color: '#94A3B8',
-    marginTop: 4,
   },
   primaryButton: {
     backgroundColor: '#7C3AED',

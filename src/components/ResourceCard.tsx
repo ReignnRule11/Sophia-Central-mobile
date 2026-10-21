@@ -12,4 +12,14 @@ export default function ResourceCard({ resource, onPress }: any) {
   );
 }
 
-const styles = StyleSheet.create({ card: { padding: 12, borderWidth: 1, borderColor: '#eee', borderRadius: 8, marginBottom: 8 }, title: { fontSize: 16, fontWeight: '600' }, meta: { color: '#666', marginTop: 6 } });
+const styles = StyleSheet.create({
+  card: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  title: { fontSize: 16, fontWeight: '600' },
+  meta: { color: '#666' },
+});

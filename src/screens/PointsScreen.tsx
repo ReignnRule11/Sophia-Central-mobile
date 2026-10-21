@@ -1,6 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { mockTransactions } from '../data/mockData';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+
+const transactions = [
+  { id: '1', label: 'Uploaded lecture notes', value: '+120' },
+  { id: '2', label: 'Referred a friend', value: '+50' },
+  { id: '3', label: 'AI summary', value: '-5' },
+];
 
 export default function PointsScreen() {
   return (
@@ -10,9 +15,8 @@ export default function PointsScreen() {
 
       <Text style={styles.section}>Recent activity</Text>
       <FlatList
-        data={mockTransactions}
+        data={transactions}
         keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{item.label}</Text>

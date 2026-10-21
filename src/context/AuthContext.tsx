@@ -56,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const payload = response.data?.data ?? response.data ?? null;
             setUser(payload && typeof payload === 'object' ? (payload as UserProfile) : null);
           } catch (_error) {
-            // If the backend rejects the saved session, fall back to no user.
             setUser(null);
           }
         }
