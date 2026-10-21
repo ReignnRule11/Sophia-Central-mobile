@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import TabNavigator from './TabNavigator';
 import ResourceDetailScreen from '../screens/ResourceDetailScreen';
+import AIChatScreen from '../screens/AIChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -16,13 +17,14 @@ export default function AppNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {token ? (
+      {!token ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : (
         <>
           <Stack.Screen name="Main" component={TabNavigator} />
           <Stack.Screen name="ResourceDetail" component={ResourceDetailScreen} />
+          <Stack.Screen name="AIChat" component={AIChatScreen} />
         </>
-      ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
       )}
     </Stack.Navigator>
   );

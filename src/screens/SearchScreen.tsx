@@ -1,29 +1,35 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-
-const sampleResults = [
-  { id: '1', title: 'Discrete Mathematics', type: 'Course Notes', institution: 'UNILAG' },
-  { id: '2', title: 'Calculus II', type: 'Past Questions', institution: 'UI' },
-  { id: '3', title: 'Research Proposal Guide', type: 'Research Paper', institution: 'FUTA' },
-  { id: '4', title: 'Database Management', type: 'Lecture Slides', institution: 'UNN' },
-];
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../config/api';
+import { mockResources } from '../data/mockData';
 
 export default function SearchScreen() {
   const navigation = useNavigation<any>();
   const [query, setQuery] = useState('');
 
+  const { data } = useQuery({
+    queryKey: ['resources'],
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get('/resources');
+        const payload = response.data?.data ?? response.data ?? mockResources;
+        return Array.isArray(payload) ? payload : payload.items ?? mockResources;
+      } catch (_error) {
+        return mockResources;
+      }
+    },
+  });
+
+  const resources = useMemo(() => (Array.isArray(data) ? data : mockResources), [data]);
+
   const filtered = query
-    ? sampleResults.filter((item) => item.title.toLowerCase().includes(query.toLowerCase()))
-    : sampleResults;
+    ? resources.filter((item: any) => {
+        const haystack = `${item.title} ${item.course ?? ''} ${item.topic ?? ''} ${item.type ?? ''}`.toLowerCase();
+        return haystack.includes(query.toLowerCase());
+      })
+    : resources;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -40,11 +46,12 @@ export default function SearchScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ResourceDetail', { resource: item })}>
               <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.meta}>{item.type}</Text>
-              <Text style={styles.meta}>{item.institution}</Text>
+              <Text style={styles.meta}>{item.type ?? 'Resource'}</Text>
+              <Text style={styles.meta}>{item.institution ?? 'Institution'}</Text>
             </TouchableOpacity>
           )}
         />

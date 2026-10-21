@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
@@ -41,45 +33,20 @@ export default function LoginScreen() {
 
       {mode === 'register' && (
         <>
-          <TextInput
-            placeholder="First name"
-            value={firstName}
-            onChangeText={setFirstName}
-            style={styles.input}
-          />
-          <TextInput
-            placeholder="Last name"
-            value={lastName}
-            onChangeText={setLastName}
-            style={styles.input}
-          />
+          <TextInput placeholder="First name" value={firstName} onChangeText={setFirstName} style={styles.input} />
+          <TextInput placeholder="Last name" value={lastName} onChangeText={setLastName} style={styles.input} />
         </>
       )}
 
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
+      <TextInput placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={styles.input} />
+      <TextInput placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry style={styles.input} />
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit} disabled={loading}>
         <Text style={styles.primaryButtonText}>{loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create account'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setMode(mode === 'login' ? 'register' : 'login')}>
-        <Text style={styles.switchText}>
-          {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Login'}
-        </Text>
+        <Text style={styles.switchText}>{mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Login'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
