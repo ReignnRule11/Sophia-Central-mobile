@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { apiClient } from '../config/api';
 
@@ -22,11 +22,11 @@ export default function UploadScreen() {
     try {
       setLoading(true);
       await apiClient.post('/resources', {
-        title,
-        course,
-        topic,
-        institution,
-        description,
+        title: title.trim(),
+        course: course.trim(),
+        topic: topic.trim(),
+        institution: institution.trim(),
+        description: description.trim(),
         type: resourceType.toLowerCase().replace(/\s+/g, '_'),
       });
 

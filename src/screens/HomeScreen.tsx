@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../config/api';
@@ -60,7 +60,7 @@ export default function HomeScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         data={featured}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.horizontalList}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.trendCard} onPress={() => navigation.navigate('ResourceDetail', { resource: item })}>
@@ -76,9 +76,9 @@ export default function HomeScreen() {
         <Text style={styles.empty}>Loading resources...</Text>
       ) : (
         <View style={styles.listWrap}>
-          {(resources.length ? resources : mockResources).map((item: any) => (
+          {resources.map((item: any) => (
             <TouchableOpacity
-              key={item.id}
+              key={String(item.id)}
               style={styles.resourceCard}
               onPress={() => navigation.navigate('ResourceDetail', { resource: item })}
             >
@@ -116,8 +116,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#F8FAFC',
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
   },
   badge: {
     backgroundColor: '#1F2937',
@@ -138,6 +138,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1F2937',
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
   },
   searchText: {
     color: '#94A3B8',
@@ -160,7 +164,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#F8FAFC',
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: '700',
     marginBottom: 16,
   },

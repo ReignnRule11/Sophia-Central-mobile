@@ -16,13 +16,12 @@ export default function SearchScreen() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['resources', query, selectedType, page],
-    queryFn: () =>
-      fetchResources({
-        search: query || undefined,
-        type: selectedType === 'All' ? undefined : selectedType,
-        page,
-        limit: pageSize,
-      }),
+    queryFn: async () => fetchResources({
+      search: query || undefined,
+      type: selectedType === 'All' ? undefined : selectedType,
+      page,
+      limit: pageSize,
+    }),
   });
 
   const resources = useMemo(() => (data?.items?.length ? data.items : mockResources), [data]);
@@ -39,7 +38,7 @@ export default function SearchScreen() {
             setQuery(text);
             setPage(1);
           }}
-          placeholder="Search course, notes, topic..."
+          placeholder="Search courses, notes, and topics..."
           placeholderTextColor="#94A3B8"
           style={styles.input}
         />
