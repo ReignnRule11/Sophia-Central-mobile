@@ -1,148 +1,43 @@
-name: Push Mobile App Updates
+name: Mobile CI
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  push-updates:
+  validate:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: npm
 
-      - name: Create directories
-        run: |
-          mkdir -p src/config src/api src/utils src/screens src/__tests__ backend_examples
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: Write src/config/uploadConfig.ts
-        run: |
-          cat > src/config/uploadConfig.ts <<'EOF'
-          export const UPLOAD_CONFIG = {
-            CHUNK_SIZE: 5 * 1024 * 1024, // 5 MB
-            MULTIPART_THRESHOLD: 10 * 1024 * 1024, // 10 MB
-            MAX_UPLOAD_ATTEMPTS: 3,
-            MAX_CONFIRM_ATTEMPTS: 3,
-            BACKOFF_BASE_MS: 500,
-          };
-          EOF
+      - name: TypeScript typecheck
+        run: npm run typecheck
 
-      - name: Write src/utils/chunk.ts
-        run: |
-          cat > src/utils/chunk.ts <<'EOF'
-          export function splitArrayBufferIntoChunks(buffer: ArrayBuffer, chunkSize: number): ArrayBuffer[] {
-            const result: ArrayBuffer[] = [];
-            let offset = 0;
-            while (offset < buffer.byteLength) {
-              const size = Math.min(chunkSize, buffer.byteLength - offset);
-              result.push(buffer.slice(offset, offset + size));
-              offset += size;
-            }
-            return result;
-          }
-          EOF
-
-      - name: Write minimal typed API wrapper (src/api/api.ts)
-        run: |
-          cat > src/api/api.ts <<'EOF'
-          import client from './client';
-
-          export type ResourceCreateRequest = { title: string; description?: string; type?: string };
-          export type ResourceCreateResponse = { id: string };
-          export type PresignResponse = { uploadUrl: string; fileKey: string; expiresIn?: number; method?: string };
-          export type InitiateMultipartResponse = { uploadId: string; fileKey: string; parts: { partNumber: number; uploadUrl: string }[] };
-          export type CompleteMultipartRequest = { uploadId: string; fileKey: string; parts: { partNumber: number; etag: string }[] };
-
-          export async function createResource(payload: ResourceCreateRequest): Promise<ResourceCreateResponse> {
-            const resp = await client.post('/resources', payload);
-            return resp.data;
-          }
-
-          export async function presignUrl(filename: string, mimeType: string, size: number): Promise<PresignResponse> {
-            const resp = await client.post('/storage/presigned-url', { filename, mimeType, size });
-            return resp.data;
-          }
-
-          export async function confirmUpload(fileKey: string, resourceId: string) {
-            const resp = await client.post('/storage/confirm-upload', { fileKey, resourceId });
-            return resp.data;
-          }
-
-          export async function initiateMultipart(filename: string, mimeType: string, size: number, chunkSize: number): Promise<InitiateMultipartResponse> {
-            const resp = await client.post('/storage/initiate-multipart', { filename, mimeType, size, chunkSize });
-            return resp.data;
-          }
-
-          export async function completeMultipart(req: CompleteMultipartRequest) {
-            const resp = await client.post('/storage/complete-multipart', req);
-            return resp.data;
-          }
-          EOF
-
-      - name: Write compact placeholder UploadScreen
-        run: |
-          cat > src/screens/UploadScreen.tsx <<'EOF'
-          import React, { useState } from 'react';
-          import { View, Text, Button, TextInput } from 'react-native';
-
-          export default function UploadScreen() {
-            const [title, setTitle] = useState('');
-            return (
-              <View style={{ padding: 16 }}>
-                <Text style={{ fontSize: 18, fontWeight: '600' }}>Upload (placeholder)</Text>
-                <TextInput placeholder="Title" value={title} onChangeText={setTitle} style={{ borderWidth:1, padding:8, marginVertical:8 }} />
-                <Button title="Pick file & upload (use local client for full flows)" onPress={() => alert('Use full client locally')} />
-              </View>
-            );
-          }
-          EOF
-
-      - name: Write simple test & jest.config
-        run: |
-          cat > src/__tests__/chunk.test.ts <<'EOF'
-          import { splitArrayBufferIntoChunks } from '../utils/chunk';
-
-          test('splitArrayBufferIntoChunks splits buffer correctly', () => {
-            const size = 1024 * 1024;
-            const total = 5 * size + 123;
-            const buffer = new ArrayBuffer(total);
-            const chunks = splitArrayBufferIntoChunks(buffer, size);
-            expect(chunks.length).toBe(6);
-            let sum = 0;
-            for (const c of chunks) sum += c.byteLength;
-            expect(sum).toBe(total);
-          });
-          EOF
-
-          cat > jest.config.js <<'EOF'
-          module.exports = {
-            preset: 'ts-jest',
-            testEnvironment: 'node',
-            transform: { '^.+\\.(ts|tsx)$': 'ts-jest' },
-            testMatch: ['**/__tests__/**/*.test.(ts|tsx|js)'],
-          };
-          EOF
-
-      - name: Commit and push prepared changes
+      - name: Export production bundles
+        run: npx expo export --platform all
         env:
-          GIT_TOKEN: ${{ secrets.PUSH_TOKEN }}
-        run: |
-          git config user.email "ci@yourteam"
-          git config user.name "ci-bot"
-          git remote set-url origin https://x-access-token:${GIT_TOKEN}@github.com/${{ github.repository }}.git
-          git add .
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "chore(mobile): add upload config, chunk util, typed API, simple screen & tests"
-            git push origin HEAD:main
-          fi
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+
+      - name: Check Expo configuration
+        run: npx expo-doctor
