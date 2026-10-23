@@ -29,9 +29,6 @@
     ],
     "experiments": {
       "typedRoutes": false
-    },
-    "extra": {
-      "apiUrl": "https://api.sophia-central.com"
     }
   }
 }
