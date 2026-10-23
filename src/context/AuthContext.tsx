@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('No access token returned');
     }
 
-    await persistSession(accessToken, payload.user ?? payload);
+    await persistSession(accessToken, payload);
   };
 
   const register = async (payload: Record<string, string>) => {
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('No access token returned');
     }
 
-    await persistSession(accessToken, data.user ?? data);
+    await persistSession(accessToken, data);
   };
 
   const refreshSession = async () => {
