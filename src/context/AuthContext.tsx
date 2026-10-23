@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { apiClient, clearAuthState } from '../config/api';
-import type { AuthSession, UserProfile } from '../types';
+
+type UserProfile = Record<string, unknown>;
 
 interface AuthContextValue {
   token: string | null;
@@ -14,131 +15,93 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-const TOKEN_KEY = 'auth_token';
-const LEGACY_TOKEN_KEY = 'token';
+const COOKIE_SESSION = 'cookie-session';
+
+function responsePayload(response: any): any {
+  return response?.data?.data ?? response?.data ?? {};
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const persistSession = async (accessToken: string, payload?: AuthSession | UserProfile | null) => {
-    const sessionUser = (payload && 'user' in payload ? payload.user : payload) as UserProfile | null;
-    await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
-    const refreshToken =
-      payload && typeof payload === 'object' && 'refreshToken' in payload
-        ? (payload as Record<string, unknown>).refreshToken
-        : payload && typeof payload === 'object' && 'refresh_token' in payload
-          ? (payload as Record<string, unknown>).refresh_token
-          : null;
-    if (typeof refreshToken === 'string' && refreshToken.length > 0) {
-      await SecureStore.setItemAsync('refresh_token', refreshToken);
+  const applySession = async (payload: any) => {
+    if (typeof payload?.csrfToken === 'string' && payload.csrfToken.length > 0) {
+      await SecureStore.setItemAsync('csrf_token', payload.csrfToken);
     }
-    await SecureStore.deleteItemAsync(LEGACY_TOKEN_KEY);
-
-    setToken(accessToken);
-    setUser(sessionUser ?? null);
-
-    if (apiClient.defaults.headers.common) {
-      apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-    }
+    setToken(COOKIE_SESSION);
+    setUser(payload?.user && typeof payload.user === 'object' ? payload.user : null);
   };
 
   useEffect(() => {
+    let mounted = true;
     const bootstrap = async () => {
       try {
-        const legacyToken = await SecureStore.getItemAsync(LEGACY_TOKEN_KEY);
-        if (legacyToken) {
-          await SecureStore.setItemAsync(TOKEN_KEY, legacyToken);
-          await SecureStore.deleteItemAsync(LEGACY_TOKEN_KEY);
+        const response = await apiClient.get('/auth/me');
+        const payload = responsePayload(response);
+        if (mounted && payload?.user && typeof payload.user === 'object') {
+          setToken(COOKIE_SESSION);
+          setUser(payload.user);
         }
-
-        const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-        if (storedToken) {
-          setToken(storedToken);
-          if (apiClient.defaults.headers.common) {
-            apiClient.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
+      } catch (error: any) {
+        if (error?.response?.status === 401 || error?.response?.status === 403) {
+          await clearAuthState();
+          if (mounted) {
+            setToken(null);
+            setUser(null);
           }
-
-          try {
-            const response = await apiClient.get('/auth/me');
-            const payload = response.data?.data ?? response.data ?? null;
-            setUser(payload && typeof payload === 'object' ? (payload as UserProfile) : null);
-          } catch (error: any) {
-            // A rejected session must not remain authenticated in local state.
-            if (error?.response?.status === 401 || error?.response?.status === 403) {
-              await clearAuthState();
-              setToken(null);
-              setUser(null);
-              if (apiClient.defaults.headers.common) {
-                delete apiClient.defaults.headers.common.Authorization;
-              }
-            } else {
-              // Keep the session for transient network failures; protected requests remain server-authorized.
-              setUser(null);
-            }
-          }
+        } else if (mounted) {
+          // A transient network failure must not fabricate an authenticated user.
+          setToken(null);
+          setUser(null);
         }
-      } catch (_error) {
-        console.warn('Auth bootstrap failed', _error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     bootstrap();
+    return () => { mounted = false; };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     const response = await apiClient.post('/auth/login', { email, password });
-    const payload = response.data?.data ?? response.data ?? {};
-    const accessToken = payload.accessToken ?? payload.token ?? payload.access_token ?? null;
-
-    if (!accessToken) {
-      throw new Error('No access token returned');
+    const payload = responsePayload(response);
+    if (!payload?.user || typeof payload.user !== 'object' || typeof payload.csrfToken !== 'string') {
+      throw new Error('Backend auth contract mismatch: expected user and csrfToken from POST /auth/login.');
     }
-
-    await persistSession(accessToken, payload);
+    await applySession(payload);
   };
 
   const register = async (payload: Record<string, string>) => {
-    const response = await apiClient.post('/auth/register', payload);
-    const data = response.data?.data ?? response.data ?? {};
-    const accessToken = data.accessToken ?? data.token ?? data.access_token ?? null;
-
-    if (!accessToken) {
-      throw new Error('No access token returned');
+    const response = await apiClient.post('/auth/signup', payload);
+    const data = responsePayload(response);
+    if (!data?.user || typeof data.user !== 'object' || typeof data.csrfToken !== 'string') {
+      throw new Error('Backend auth contract mismatch: expected user and csrfToken from POST /auth/signup.');
     }
-
-    await persistSession(accessToken, data);
+    await applySession(data);
   };
 
   const refreshSession = async () => {
-    if (!token) {
-      return;
-    }
-
-    try {
-      const response = await apiClient.post('/auth/refresh');
-      const data = response.data?.data ?? response.data ?? {};
-      const nextToken = data.accessToken ?? data.token ?? data.access_token ?? null;
-
-      if (nextToken) {
-        await persistSession(nextToken, user ?? null);
-      }
-    } catch (_error) {
+    const response = await apiClient.get('/auth/me');
+    const payload = responsePayload(response);
+    if (!payload?.user || typeof payload.user !== 'object') {
       await signOut();
-      throw _error;
+      throw new Error('Session is no longer valid.');
     }
+    setToken(COOKIE_SESSION);
+    setUser(payload.user);
   };
 
   const signOut = async () => {
-    await clearAuthState();
-    if (apiClient.defaults.headers.common) {
-      delete apiClient.defaults.headers.common.Authorization;
+    try {
+      if (token) await apiClient.post('/auth/logout');
+    } finally {
+      await clearAuthState();
+      setToken(null);
+      setUser(null);
     }
-    setToken(null);
-    setUser(null);
   };
 
   const value = useMemo<AuthContextValue>(
@@ -154,6 +117,5 @@ export function useAuth() {
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
   }
-
   return context;
 }
