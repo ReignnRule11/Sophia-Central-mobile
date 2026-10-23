@@ -10,7 +10,7 @@ export default function RegisterScreen({ navigation }: any) {
 
   const handleRegister = async () => {
     try {
-      await client.post('/auth/register', { firstName, lastName, email, password });
+      await client.post('/auth/signup', { firstName, lastName, email, password });
       alert('Registration successful. Please log in.');
       navigation.goBack();
     } catch (err) {
