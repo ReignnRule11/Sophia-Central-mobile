@@ -1,10 +1,13 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 
-const apiUrl = Constants.expoConfig?.extra?.apiUrl ?? 'http://localhost:3000';
+const configuredApiUrl =
+  process.env.EXPO_PUBLIC_API_URL ??
+  Constants.expoConfig?.extra?.apiUrl ??
+  'https://api.sophia-central.com';
 
 export const apiClient = axios.create({
-  baseURL: apiUrl,
+  baseURL: configuredApiUrl.replace(/\/$/, ''),
   timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
@@ -22,5 +25,5 @@ apiClient.interceptors.response.use(
 );
 
 export async function clearAuthState() {
-  // noop for compatibility with secure-store based auth flow
+  // AuthContext owns secure token storage and clears it during sign-out.
 }
