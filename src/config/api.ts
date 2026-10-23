@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
 const configuredApiUrl =
@@ -25,5 +26,9 @@ apiClient.interceptors.response.use(
 );
 
 export async function clearAuthState() {
-  // AuthContext owns secure token storage and clears it during sign-out.
+  await Promise.all([
+    SecureStore.deleteItemAsync('auth_token'),
+    SecureStore.deleteItemAsync('refresh_token'),
+    SecureStore.deleteItemAsync('token'),
+  ]);
 }
