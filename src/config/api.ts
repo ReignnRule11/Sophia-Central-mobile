@@ -1,34 +1,28 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
 
-const configuredApiUrl =
-  process.env.EXPO_PUBLIC_API_URL ??
-  Constants.expoConfig?.extra?.apiUrl ??
-  'https://api.sophia-central.com';
+const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/$/, '');
 
 export const apiClient = axios.create({
-  baseURL: configuredApiUrl.replace(/\/$/, ''),
+  baseURL: API_URL || undefined,
   timeout: 20000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.warn('Unauthorized request. User may need to re-authenticate.');
-    }
-    return Promise.reject(error);
-  },
-);
+apiClient.interceptors.request.use(async (config) => {
+  if (!API_URL) {
+    throw new Error('EXPO_PUBLIC_API_URL is not configured. Set it to the verified Sophia Central backend HTTPS URL.');
+  }
+
+  const method = (config.method ?? 'get').toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const csrfToken = await SecureStore.getItemAsync('csrf_token');
+    if (csrfToken) config.headers.set('X-CSRF-Token', csrfToken);
+  }
+  return config;
+});
 
 export async function clearAuthState() {
-  await Promise.all([
-    SecureStore.deleteItemAsync('auth_token'),
-    SecureStore.deleteItemAsync('refresh_token'),
-    SecureStore.deleteItemAsync('token'),
-  ]);
+  await SecureStore.deleteItemAsync('csrf_token');
 }
