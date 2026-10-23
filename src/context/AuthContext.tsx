@@ -2,7 +2,13 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import * as SecureStore from 'expo-secure-store';
 import { apiClient, clearAuthState } from '../config/api';
 
-type UserProfile = Record<string, unknown>;
+interface UserProfile {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  [key: string]: unknown;
+}
 
 interface AuthContextValue {
   token: string | null;
