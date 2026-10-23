@@ -25,6 +25,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const persistSession = async (accessToken: string, payload?: AuthSession | UserProfile | null) => {
     const sessionUser = (payload && 'user' in payload ? payload.user : payload) as UserProfile | null;
     await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+    const refreshToken =
+      payload && typeof payload === 'object' && 'refreshToken' in payload
+        ? (payload as Record<string, unknown>).refreshToken
+        : payload && typeof payload === 'object' && 'refresh_token' in payload
+          ? (payload as Record<string, unknown>).refresh_token
+          : null;
+    if (typeof refreshToken === 'string' && refreshToken.length > 0) {
+      await SecureStore.setItemAsync('refresh_token', refreshToken);
+    }
     await SecureStore.deleteItemAsync(LEGACY_TOKEN_KEY);
 
     setToken(accessToken);
@@ -55,8 +64,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const response = await apiClient.get('/auth/me');
             const payload = response.data?.data ?? response.data ?? null;
             setUser(payload && typeof payload === 'object' ? (payload as UserProfile) : null);
-          } catch (_error) {
-            setUser(null);
+          } catch (error: any) {
+            // A rejected session must not remain authenticated in local state.
+            if (error?.response?.status === 401 || error?.response?.status === 403) {
+              await clearAuthState();
+              setToken(null);
+              setUser(null);
+              if (apiClient.defaults.headers.common) {
+                delete apiClient.defaults.headers.common.Authorization;
+              }
+            } else {
+              // Keep the session for transient network failures; protected requests remain server-authorized.
+              setUser(null);
+            }
           }
         }
       } catch (_error) {
