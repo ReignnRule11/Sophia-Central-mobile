@@ -1,5 +1,8 @@
 # Sophia Central Mobile
 
+[![Mobile CI](https://github.com/ReignnRule11/Sophia-Central-mobile/actions/workflows/push-mobile-updates.yml/badge.svg)](https://github.com/ReignnRule11/Sophia-Central-mobile/actions/workflows/push-mobile-updates.yml)
+
+
 Sophia Central Mobile is the mobile client repository for the Sophia Central platform. Built with React Native and Expo, it provides the foundation for mobile screen flows, navigation, API integration, and upload-related client logic.
 
 This repository is structured as a mobile application scaffold and includes the main navigation, API utilities, and a set of modular screens that support app functionality and integration with a backend service.
