@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Sophis Central Mobile API
-  version: 1.1.0
+  version: 1.1.1
   description: Mobile contract aligned with the current NestJS controllers and web frontend API.
 servers:
   - url: https://sophia-central-backend.onrender.com
@@ -31,15 +31,18 @@ paths:
           application/json:
             schema:
               type: object
-              required: [firstName, lastName, email, password]
+              required: [firstName, lastName, email, password, academicHandle]
               properties:
                 firstName: { type: string }
                 lastName: { type: string }
                 email: { type: string, format: email }
                 password: { type: string, format: password }
+                academicHandle: { type: string, minLength: 3, maxLength: 30 }
                 institution: { type: string }
                 faculty: { type: string }
                 department: { type: string }
+                role: { type: string, enum: [student, lecturer] }
+                referralCode: { type: string }
       responses:
         '201':
           description: User and CSRF token; access cookie is HttpOnly
@@ -107,7 +110,7 @@ paths:
   /search:
     get:
       security: []
-      summary: Search approved academic resources
+      summary: Search verified academic resources
       parameters:
         - in: query
           name: q
@@ -189,11 +192,6 @@ paths:
   /ai/chat:
     post:
       summary: Ask Sophis AI (students only)
-      parameters:
-        - in: header
-          name: X-CSRF-Token
-          required: false
-          schema: { type: string }
       requestBody:
         required: true
         content:
