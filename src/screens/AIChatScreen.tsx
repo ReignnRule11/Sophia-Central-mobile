@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../config/api';
 
 type Message = { id: string; from: 'user' | 'bot'; text: string };
 const payloadOf = (response: any) => response?.data?.data ?? response?.data ?? {};
 
 export default function AIChatScreen() {
+  const queryClient = useQueryClient();
   const [question, setQuestion] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([
@@ -16,15 +18,11 @@ export default function AIChatScreen() {
   const handleSend = async () => {
     const prompt = question.trim();
     if (!prompt || sending) return;
-    const userMessage: Message = { id: `user-${Date.now()}`, from: 'user', text: prompt };
-    setMessages((previous) => [...previous, userMessage]);
+    setMessages((previous) => [...previous, { id: `user-${Date.now()}`, from: 'user', text: prompt }]);
     setQuestion('');
     setSending(true);
     try {
-      const response = await apiClient.post('/ai/chat', {
-        question: prompt,
-        ...(sessionId ? { sessionId } : {}),
-      });
+      const response = await apiClient.post('/ai/chat', { question: prompt, ...(sessionId ? { sessionId } : {}) });
       const payload = payloadOf(response);
       if (payload.error === 'Insufficient Wisdom Points') {
         Alert.alert('Insufficient Wisdom Points', `You need ${payload.required ?? 2} points. Your balance is ${payload.balance ?? 0}.`);
@@ -34,18 +32,14 @@ export default function AIChatScreen() {
         throw new Error('Sophis AI returned an empty response.');
       }
       if (typeof payload.sessionId === 'string') setSessionId(payload.sessionId);
-      setMessages((previous) => [...previous, {
-        id: `assistant-${Date.now()}`,
-        from: 'bot',
-        text: payload.assistantMessage,
-      }]);
+      setMessages((previous) => [...previous, { id: `assistant-${Date.now()}`, from: 'bot', text: payload.assistantMessage }]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['wallet-balance'] }),
+        queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] }),
+      ]);
     } catch (error: any) {
       const message = error?.response?.data?.message ?? error?.message ?? 'Please try again.';
-      setMessages((previous) => [...previous, {
-        id: `error-${Date.now()}`,
-        from: 'bot',
-        text: `I couldn't complete that request: ${String(message)}`,
-      }]);
+      setMessages((previous) => [...previous, { id: `error-${Date.now()}`, from: 'bot', text: `I couldn't complete that request: ${String(message)}` }]);
     } finally {
       setSending(false);
     }
@@ -63,15 +57,7 @@ export default function AIChatScreen() {
         {sending ? <ActivityIndicator color="#A5B4FC" style={{ margin: 12 }} /> : null}
       </ScrollView>
       <View style={styles.inputRow}>
-        <TextInput
-          value={question}
-          onChangeText={setQuestion}
-          placeholder="Ask about notes, quizzes, or concepts"
-          style={styles.input}
-          placeholderTextColor="#94A3B8"
-          editable={!sending}
-          multiline
-        />
+        <TextInput value={question} onChangeText={setQuestion} placeholder="Ask about notes, quizzes, or concepts" style={styles.input} placeholderTextColor="#94A3B8" editable={!sending} multiline />
         <TouchableOpacity style={[styles.sendButton, sending && styles.disabledButton]} onPress={handleSend} disabled={sending || !question.trim()}>
           <Text style={styles.sendText}>{sending ? '...' : 'Send'}</Text>
         </TouchableOpacity>
