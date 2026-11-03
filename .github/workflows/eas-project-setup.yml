@@ -1,0 +1,48 @@
+name: Link Sophia Central to EAS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eas-project-link
+  cancel-in-progress: false
+
+jobs:
+  link-project:
+    name: Create or link Expo project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create or link the EAS project
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli@latest init --account reignnrule1 --non-interactive --json
+
+      - name: Persist the generated EAS project ID
+        run: |
+          if ! git diff --quiet -- app.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app.json
+            git commit -m "chore(eas): persist EAS project ID"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          else
+            echo "app.json is already linked to an EAS project; no commit needed."
+          fi
