@@ -7,6 +7,8 @@ import UploadScreen from '../screens/UploadScreen';
 import PointsScreen from '../screens/PointsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AIChatScreen from '../screens/AIChatScreen';
+import ModerationScreen from '../screens/ModerationScreen';
+import MyUploadsScreen from '../screens/MyUploadsScreen';
 import { useAuth } from '../context/AuthContext';
 
 const Tab = createBottomTabNavigator();
@@ -16,6 +18,7 @@ export default function TabNavigator() {
   const role = user?.role;
   const isStudent = role === 'student';
   const isLecturer = role === 'lecturer';
+  const canModerate = role === 'moderator' || role === 'admin';
 
   return (
     <Tab.Navigator
@@ -26,6 +29,8 @@ export default function TabNavigator() {
           if (route.name === 'Discover') iconName = 'search';
           if (route.name === 'AI Chat') iconName = 'chatbubbles';
           if (route.name === 'Upload') iconName = 'cloud-upload';
+          if (route.name === 'My uploads') iconName = 'folder';
+          if (route.name === 'Moderation') iconName = 'shield-checkmark';
           if (route.name === 'Points') iconName = 'trophy';
           if (route.name === 'Profile') iconName = 'person';
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -40,6 +45,8 @@ export default function TabNavigator() {
       <Tab.Screen name="Discover" component={SearchScreen} />
       {isStudent ? <Tab.Screen name="AI Chat" component={AIChatScreen} /> : null}
       {isLecturer ? <Tab.Screen name="Upload" component={UploadScreen} /> : null}
+      {isLecturer ? <Tab.Screen name="My uploads" component={MyUploadsScreen} /> : null}
+      {canModerate ? <Tab.Screen name="Moderation" component={ModerationScreen} /> : null}
       {isStudent ? <Tab.Screen name="Points" component={PointsScreen} /> : null}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
