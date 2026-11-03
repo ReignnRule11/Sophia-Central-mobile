@@ -2,6 +2,7 @@
   "expo": {
     "name": "sophia-central-mobile",
     "slug": "sophia-central-mobile",
+    "owner": "reignnrule1",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
