@@ -5,6 +5,12 @@ import * as FileSystem from 'expo-file-system';
 import { apiClient } from '../config/api';
 
 const resourceTypes = ['Lecture Notes', 'Past Questions', 'Research Paper', 'Project Reference'];
+const resourceTypeValues: Record<string, string> = {
+  'Lecture Notes': 'lecture_notes',
+  'Past Questions': 'past_question',
+  'Research Paper': 'research_paper',
+  'Project Reference': 'project',
+};
 const mimeByExtension: Record<string, string> = {
   pdf: 'application/pdf',
   doc: 'application/msword',
@@ -29,27 +35,22 @@ export default function UploadScreen() {
   const [loading, setLoading] = useState(false);
 
   const chooseFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      copyToCacheDirectory: true,
-      multiple: false,
-      type: [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'text/plain',
-        'image/jpeg',
-        'image/png',
-      ],
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      const selected = result.assets[0];
-      if (!selected.size || selected.size > 100 * 1024 * 1024) {
-        Alert.alert('File size not supported', 'Choose a file smaller than 100 MB.');
-        return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: Object.values(mimeByExtension),
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const selected = result.assets[0];
+        if (!selected.size || selected.size > 100 * 1024 * 1024) {
+          Alert.alert('File size not supported', 'Choose a file smaller than 100 MB.');
+          return;
+        }
+        setFile(selected);
       }
-      setFile(selected);
+    } catch (error: any) {
+      Alert.alert('Unable to select file', String(error?.message ?? 'Please try again.'));
     }
   };
 
@@ -67,8 +68,8 @@ export default function UploadScreen() {
 
     setLoading(true);
     try {
-      // The backend storage service accepts a resource identifier as a storage
-      // key namespace. The confirmed file URL is then attached on resource creation.
+      // Storage accepts a resource identifier as the object-key namespace. The
+      // confirmed private-storage URL is attached to the resource on creation.
       const uploadResourceId = `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const presign = payloadOf(await apiClient.post('/storage/presigned-url', {
         fileName: file.name,
@@ -98,7 +99,7 @@ export default function UploadScreen() {
         topic: topic.trim(),
         institution: institution.trim(),
         description: description.trim(),
-        type: resourceType.toLowerCase().replace(/\s+/g, '_'),
+        type: resourceTypeValues[resourceType],
         fileUrl: confirmed.fileUrl,
       });
 
