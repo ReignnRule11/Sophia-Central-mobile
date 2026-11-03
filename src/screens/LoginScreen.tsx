@@ -2,6 +2,24 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
+function getAuthErrorMessage(error: any): string {
+  const raw = error?.response?.data?.message ?? error?.response?.data?.error ?? error?.message;
+  const readable = (value: any): string | null => {
+    if (typeof value === 'string' && value.trim()) return value;
+    if (Array.isArray(value)) {
+      const parts = value.map(readable).filter(Boolean);
+      return parts.length ? parts.join('\n') : null;
+    }
+    if (value && typeof value === 'object') {
+      if (typeof value.message === 'string') return value.message;
+      if (Array.isArray(value.message)) return readable(value.message);
+      if (typeof value.error === 'string') return value.error;
+    }
+    return null;
+  };
+  return readable(raw) ?? 'The request could not be completed. Check your connection and try again.';
+}
+
 export default function LoginScreen() {
   const { signIn, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -41,7 +59,7 @@ export default function LoginScreen() {
         });
       }
     } catch (error: any) {
-      Alert.alert('Authentication failed', String(error?.response?.data?.message ?? error?.message ?? 'Please try again.'));
+      Alert.alert('Authentication failed', getAuthErrorMessage(error));
     } finally {
       setLoading(false);
     }
