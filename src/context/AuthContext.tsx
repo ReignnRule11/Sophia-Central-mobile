@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const response = await apiClient.post('/auth/login', { email, password });
+    const response = await apiClient.post('/auth/login', { identifier: email.trim(), password });
     const payload = payloadOf(response);
     if (!payload?.user || typeof payload.user !== 'object') {
       throw new Error('Backend auth contract mismatch: POST /auth/login must return a user.');
