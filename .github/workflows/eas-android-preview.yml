@@ -1,0 +1,49 @@
+name: Build Sophia Central Android Preview APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-android-preview
+  cancel-in-progress: false
+
+jobs:
+  build-preview:
+    name: Build Android preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Expo token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is missing. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Install app dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Verify Expo configuration
+        run: |
+          npx expo config --type public
+          npx expo-doctor
+
+      - name: Build Android preview APK on EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait
