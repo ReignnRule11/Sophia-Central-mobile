@@ -2,11 +2,15 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import * as SecureStore from 'expo-secure-store';
 import { apiClient, clearAuthState } from '../config/api';
 
-interface UserProfile {
+export interface UserProfile {
   id?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
+  role?: 'student' | 'lecturer' | 'moderator' | 'admin' | string;
+  institution?: string;
+  faculty?: string;
+  department?: string;
   [key: string]: unknown;
 }
 
@@ -23,8 +27,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const COOKIE_SESSION = 'cookie-session';
 
-function responsePayload(response: any): any {
+function payloadOf(response: any): any {
   return response?.data?.data ?? response?.data ?? {};
+}
+
+async function initializeCsrfToken(): Promise<void> {
+  const response = await apiClient.get('/auth/csrf');
+  const payload = payloadOf(response);
+  const csrfToken = payload?.csrfToken;
+  if (typeof csrfToken !== 'string' || !csrfToken) {
+    throw new Error('The backend did not issue a CSRF token.');
+  }
+  await SecureStore.setItemAsync('csrf_token', csrfToken);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -32,12 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const applySession = async (payload: any) => {
-    if (typeof payload?.csrfToken === 'string' && payload.csrfToken.length > 0) {
-      await SecureStore.setItemAsync('csrf_token', payload.csrfToken);
+  const refreshSession = async () => {
+    const response = await apiClient.get('/auth/me');
+    const payload = payloadOf(response);
+    if (!payload?.user || typeof payload.user !== 'object') {
+      throw new Error('The backend did not return an authenticated user.');
     }
     setToken(COOKIE_SESSION);
-    setUser(payload?.user && typeof payload.user === 'object' ? payload.user : null);
+    setUser(payload.user);
   };
 
   useEffect(() => {
@@ -45,10 +61,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const bootstrap = async () => {
       try {
         const response = await apiClient.get('/auth/me');
-        const payload = responsePayload(response);
+        const payload = payloadOf(response);
         if (mounted && payload?.user && typeof payload.user === 'object') {
           setToken(COOKIE_SESSION);
           setUser(payload.user);
+          // Re-issue the CSRF token for this native session. The backend auth
+          // strategy accepts the HttpOnly session cookie on native requests.
+          await initializeCsrfToken();
         }
       } catch (error: any) {
         if (error?.response?.status === 401 || error?.response?.status === 403) {
@@ -58,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
           }
         } else if (mounted) {
-          // A transient network failure must not fabricate an authenticated user.
+          // Do not manufacture an authenticated state when the API is offline.
           setToken(null);
           setUser(null);
         }
@@ -66,38 +85,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) setLoading(false);
       }
     };
-
-    bootstrap();
+    void bootstrap();
     return () => { mounted = false; };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     const response = await apiClient.post('/auth/login', { email, password });
-    const payload = responsePayload(response);
-    if (!payload?.user || typeof payload.user !== 'object' || typeof payload.csrfToken !== 'string') {
-      throw new Error('Backend auth contract mismatch: expected user and csrfToken from POST /auth/login.');
+    const payload = payloadOf(response);
+    if (!payload?.user || typeof payload.user !== 'object') {
+      throw new Error('Backend auth contract mismatch: POST /auth/login must return a user.');
     }
-    await applySession(payload);
+    // Login sets the HttpOnly access cookie. The separate CSRF endpoint issues
+    // the readable token required for subsequent protected mutations.
+    await initializeCsrfToken();
+    await refreshSession();
   };
 
   const register = async (payload: Record<string, string>) => {
     const response = await apiClient.post('/auth/signup', payload);
-    const data = responsePayload(response);
-    if (!data?.user || typeof data.user !== 'object' || typeof data.csrfToken !== 'string') {
-      throw new Error('Backend auth contract mismatch: expected user and csrfToken from POST /auth/signup.');
+    const data = payloadOf(response);
+    if (!data?.user || typeof data.user !== 'object') {
+      throw new Error('Backend auth contract mismatch: POST /auth/signup must return a user.');
     }
-    await applySession(data);
-  };
-
-  const refreshSession = async () => {
-    const response = await apiClient.get('/auth/me');
-    const payload = responsePayload(response);
-    if (!payload?.user || typeof payload.user !== 'object') {
-      await signOut();
-      throw new Error('Session is no longer valid.');
+    if (typeof data.csrfToken === 'string' && data.csrfToken) {
+      await SecureStore.setItemAsync('csrf_token', data.csrfToken);
+    } else {
+      await initializeCsrfToken();
     }
     setToken(COOKIE_SESSION);
-    setUser(payload.user);
+    setUser(data.user);
   };
 
   const signOut = async () => {
@@ -120,8 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
