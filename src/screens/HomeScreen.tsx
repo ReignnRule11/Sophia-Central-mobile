@@ -4,15 +4,18 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../config/api';
 import { fetchResources } from '../services/resources';
+import { useAuth } from '../context/AuthContext';
 
 const payloadOf = (response: any) => response?.data?.data ?? response?.data ?? {};
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
   const resourcesQuery = useQuery({ queryKey: ['resources'], queryFn: () => fetchResources() });
   const walletQuery = useQuery({
     queryKey: ['wallet-balance'],
     queryFn: async () => payloadOf(await apiClient.get('/points/my-wallet/balance')),
+    enabled: user?.role === 'student',
   });
   const resources = resourcesQuery.data?.items ?? [];
   const balanceValue = typeof walletQuery.data === 'number' ? walletQuery.data : Number(walletQuery.data?.balance);
@@ -25,9 +28,11 @@ export default function HomeScreen() {
           <Text style={styles.eyebrow}>Your learning space</Text>
           <Text style={styles.title}>Sophia Central</Text>
         </View>
-        <TouchableOpacity style={styles.badge} onPress={() => navigation.navigate('Points')}>
-          <Text style={styles.badgeText}>{walletQuery.isLoading ? '…' : `${balance} pts`}</Text>
-        </TouchableOpacity>
+        {user?.role === 'student' ? (
+          <TouchableOpacity style={styles.badge} onPress={() => navigation.navigate('Points')}>
+            <Text style={styles.badgeText}>{walletQuery.isLoading ? '…' : `${balance} pts`}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <TouchableOpacity style={styles.searchCard} onPress={() => navigation.navigate('Discover')}>
         <Text style={styles.searchText}>Search courses, notes, papers...</Text>
