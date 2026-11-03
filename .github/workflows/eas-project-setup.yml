@@ -1,0 +1,69 @@
+name: Link Sophia Central to EAS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eas-project-link
+  cancel-in-progress: false
+
+jobs:
+  link-project:
+    name: Create or link Expo project
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Expo token is configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is missing. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Create or link the EAS project
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@latest init --account reignnrule1 --non-interactive --json
+
+      - name: Verify EAS project ID
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+          if (config.owner !== 'reignnrule1') {
+            throw new Error('Expo owner is not reignnrule1');
+          }
+          if (!config.extra?.eas?.projectId) {
+            throw new Error('EAS project ID was not written to app.json');
+          }
+          console.log('Expo owner:', config.owner);
+          console.log('EAS project ID:', config.extra.eas.projectId);
+          NODE
+
+      - name: Commit the generated EAS project ID
+        run: |
+          if ! git diff --quiet -- app.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app.json
+            git commit -m "chore(eas): persist EAS project ID"
+            git push origin HEAD:main
+          else
+            echo "EAS project configuration is already committed."
+          fi
