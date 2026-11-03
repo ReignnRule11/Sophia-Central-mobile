@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install app dependencies
+        run: npm install --no-package-lock
+
       - name: Verify Expo token is configured
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
