@@ -1,12 +1,11 @@
-import axios from 'axios';
+import { apiClient } from '../config/api';
 
 export type ResourceQuery = {
-  search?: string;
+  q?: string;
   course?: string;
-  topic?: string;
+  institution?: string;
+  level?: string;
   type?: string;
-  page?: number;
-  limit?: number;
 };
 
 export type NormalizedResource = {
@@ -15,85 +14,56 @@ export type NormalizedResource = {
   course?: string;
   topic?: string;
   institution?: string;
+  level?: string;
   type?: string;
   description?: string;
-  url?: string;
+  fileUrl?: string;
+  moderationStatus?: string;
+  isVerified?: boolean;
   tags?: string[];
-  rating?: number;
-  uploader?: {
-    firstName?: string;
-    lastName?: string;
-  };
+  uploader?: { firstName?: string; lastName?: string; email?: string };
 };
 
-const safeString = (value: unknown, fallback = '') => {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return fallback;
-};
-
-const normalizeResource = (raw: any): NormalizedResource => {
-  const uploader = raw?.uploader ?? raw?.uploadedBy ?? {};
-
-  return {
-    id: safeString(raw?.id ?? raw?._id ?? raw?.resourceId, `resource-${Date.now()}-${Math.random().toString(16).slice(2)}`),
-    title: safeString(raw?.title ?? raw?.name ?? 'Untitled resource', 'Untitled resource'),
-    course: safeString(raw?.course ?? raw?.courseCode ?? raw?.subject ?? ''),
-    topic: safeString(raw?.topic ?? raw?.topicName ?? raw?.category ?? ''),
-    institution: safeString(raw?.institution ?? raw?.school ?? raw?.university ?? ''),
-    type: safeString(raw?.type ?? raw?.resourceType ?? 'Resource'),
-    description: safeString(
-      raw?.description ?? raw?.summary ?? 'Academic material curated for study and research.',
-      'Academic material curated for study and research.',
-    ),
-    url: safeString(raw?.url ?? raw?.link ?? raw?.fileUrl ?? ''),
-    tags: Array.isArray(raw?.tags) ? raw.tags.map((tag: any) => safeString(tag, 'Academic')) : ['Verified', 'Academic'],
-    rating: typeof raw?.rating === 'number' ? raw.rating : 4.8,
-    uploader: {
-      firstName: safeString(uploader?.firstName ?? uploader?.first_name ?? '', 'Sophia'),
-      lastName: safeString(uploader?.lastName ?? uploader?.last_name ?? '', 'Member'),
-    },
-  };
-};
-
-const getPayloadList = (payload: any): any[] => {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== 'object') return [];
-
-  const possibleKeys = ['data', 'items', 'results', 'resources', 'content'];
-  for (const key of possibleKeys) {
-    const value = payload[key];
-    if (Array.isArray(value)) return value;
-  }
-
-  return Object.values(payload).filter(Array.isArray).flat();
-};
-
-export async function fetchResources(params: ResourceQuery = {}) {
-  try {
-    const response = await axios.get(`${process.env.API_URL ?? 'http://localhost:3000'}/resources`, {
-      params,
-      timeout: 20000,
-    });
-
-    const payload = response.data ?? {};
-    const items = getPayloadList(payload);
-    const normalized = items.map(normalizeResource);
-
-    return {
-      items: normalized,
-      page: Number(payload.page ?? params.page ?? 1),
-      totalPages: Number(payload.totalPages ?? payload.pages ?? 1),
-      totalItems: Number(payload.totalItems ?? payload.total ?? normalized.length),
-    };
-  } catch (_error) {
-    return {
-      items: [],
-      page: Number(params.page ?? 1),
-      totalPages: 1,
-      totalItems: 0,
-    };
-  }
+function unwrap<T>(response: any): T {
+  return (response?.data?.data ?? response?.data ?? {}) as T;
 }
 
-export const normalizeResourceArray = (items: any[] = []) => items.map(normalizeResource);
+function asList(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.resources)) return payload.resources;
+  return [];
+}
+
+function normalizeResource(raw: any): NormalizedResource {
+  return {
+    id: String(raw?.id ?? raw?._id ?? ''),
+    title: String(raw?.title ?? 'Untitled resource'),
+    course: raw?.course ?? undefined,
+    topic: raw?.topic ?? undefined,
+    institution: raw?.institution ?? undefined,
+    level: raw?.level ?? undefined,
+    type: raw?.type ?? undefined,
+    description: raw?.description ?? undefined,
+    fileUrl: raw?.fileUrl ?? undefined,
+    moderationStatus: raw?.moderationStatus ?? undefined,
+    isVerified: raw?.isVerified === true,
+    tags: Array.isArray(raw?.tags) ? raw.tags : [],
+    uploader: raw?.uploader ?? undefined,
+  };
+}
+
+export async function fetchResources(params: ResourceQuery = {}) {
+  const response = await apiClient.get('/resources', { params });
+  const items = asList(unwrap<any>(response)).map(normalizeResource).filter((item) => item.id);
+  return { items, page: 1, totalPages: 1, totalItems: items.length };
+}
+
+export async function searchResources(params: ResourceQuery = {}) {
+  const response = await apiClient.get('/search', { params });
+  return asList(unwrap<any>(response)).map(normalizeResource).filter((item) => item.id);
+}
+
+export const normalizeResourceArray = (items: any[] = []) =>
+  items.map(normalizeResource).filter((item) => item.id);
