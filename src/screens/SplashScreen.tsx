@@ -35,7 +35,7 @@ export default function SplashScreen() {
       <View style={styles.logo}>
         <Text style={styles.logoText}>S</Text>
       </View>
-      <Text style={styles.title}>Sophia Central</Text>
+      <Text style={styles.title}>Sophis Central</Text>
       <Text style={styles.subtitle}>Study smarter. Research faster.</Text>
       <ActivityIndicator color="#A5B4FC" size="small" style={{ marginTop: 20 }} />
     </View>
