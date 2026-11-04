@@ -87,13 +87,13 @@ export default function LoginScreen() {
   const subtitle = mode === 'forgot'
     ? 'Enter your account email and we will send a secure reset link.'
     : mode === 'register'
-      ? 'Choose how you will use Sophia Central.'
-      : 'Sign in to continue to Sophia Central.';
+      ? 'Choose how you will use Sophis Central.'
+      : 'Sign in to continue to Sophis Central.';
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.headerWrap}>
-        <Text style={styles.title}>Sophia Central</Text>
+        <Text style={styles.title}>Sophis Central</Text>
         <Text style={styles.subtitle}>Study smarter. Research faster.</Text>
       </View>
       <View style={styles.card}>
