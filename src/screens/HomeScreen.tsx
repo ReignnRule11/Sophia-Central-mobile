@@ -26,7 +26,7 @@ export default function HomeScreen() {
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.eyebrow}>Your learning space</Text>
-          <Text style={styles.title}>Sophia Central</Text>
+          <Text style={styles.title}>Sophis Central</Text>
         </View>
         {user?.role === 'student' ? (
           <TouchableOpacity style={styles.badge} onPress={() => navigation.navigate('Points')}>
@@ -40,7 +40,7 @@ export default function HomeScreen() {
       <View style={styles.heroCard}>
         <Text style={styles.heroTag}>Study smarter</Text>
         <Text style={styles.heroTitle}>Find academic resources from your learning community.</Text>
-        <Text style={styles.heroDescription}>Browse materials approved and made available through Sophia Central.</Text>
+        <Text style={styles.heroDescription}>Browse materials approved and made available through Sophis Central.</Text>
       </View>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recently available</Text>
