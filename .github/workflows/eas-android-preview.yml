@@ -1,4 +1,4 @@
-name: Build Sophia Central Android Preview APK
+name: Build Sophis Central Android Preview APK
 
 on:
   workflow_dispatch:
@@ -7,24 +7,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: eas-android-preview
+  group: eas-android-preview-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build-preview:
-    name: Build Android preview APK
+    name: Validate and build Android preview APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Check out main
+      - name: Check out selected branch
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Verify Expo token
         env:
@@ -35,10 +33,16 @@ jobs:
             exit 1
           fi
 
-      - name: Install app dependencies
+      - name: Install declared dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
-      - name: Verify Expo configuration
+      - name: Align packages with Expo SDK
+        run: npx expo install --fix
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Verify Expo configuration and dependencies
         run: |
           npx expo config --type public
           npx expo-doctor
