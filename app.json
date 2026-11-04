@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "sophia-central-mobile",
-    "slug": "sophia-central-mobile",
+    "name": "sophis-central-mobile",
+    "slug": "sophis-central-mobile",
     "owner": "reignnrule1",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,10 +14,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.sophiacentral.mobile"
+      "bundleIdentifier": "com.sophiscentral.mobile"
     },
     "android": {
-      "package": "com.sophiacentral.mobile",
+      "package": "com.sophiscentral.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#0B1220"
       }
