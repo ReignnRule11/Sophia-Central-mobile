@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
+      - name: Align packages with Expo SDK
+        run: npx expo install --fix
+
       - name: TypeScript typecheck
         run: npm run typecheck
 
