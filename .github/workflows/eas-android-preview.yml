@@ -71,10 +71,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          npx --yes eas-cli@latest build:download --build-id "${{ steps.eas-build.outputs.build_id }}" --non-interactive
-          APK_PATH="$(find . -maxdepth 3 -type f -name '*.apk' -not -path './artifacts/*' -print -quit)"
+          BUILD_ID="${{ steps.eas-build.outputs.build_id }}"
+          npx --yes eas-cli@latest build:download --build-id "$BUILD_ID" --non-interactive
+          APK_PATH="$(find /tmp -type f -name "*${BUILD_ID}*.apk" -print -quit)"
           if [ -z "$APK_PATH" ]; then
-            echo "::error::EAS download completed but no APK file was found."
+            echo "::error::EAS downloaded build $BUILD_ID but its APK was not found in the runner temp directory."
+            find /tmp -type f -name '*.apk' -print || true
             exit 1
           fi
           cp "$APK_PATH" artifacts/sophis-central-preview.apk
