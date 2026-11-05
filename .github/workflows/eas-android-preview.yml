@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build-preview:
-    name: Validate and build Android preview APK
+    name: Validate, build, and inspect Android preview APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Verify Expo token
         env:
@@ -36,14 +37,12 @@ jobs:
       - name: Install declared dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
-      - name: Align packages with Expo SDK
-        run: npx expo install --fix
+      - name: Verify SDK dependency alignment (no mutation)
+        run: npx expo install --check
 
-      - name: Validate TypeScript
-        run: npm run typecheck
-
-      - name: Verify Expo configuration and dependencies
+      - name: Validate TypeScript and Expo configuration
         run: |
+          npm run typecheck
           npx expo config --type public
           npx expo-doctor
 
@@ -51,3 +50,31 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait
+
+      - name: Download the exact latest completed Android build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          npx --yes eas-cli@latest build:download --latest --platform android --path artifacts/sophis-central-preview.apk
+          test -s artifacts/sophis-central-preview.apk
+
+      - name: Verify APK archive, package ID, and signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -t artifacts/sophis-central-preview.apk
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -n "$BUILD_TOOLS"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging artifacts/sophis-central-preview.apk)"
+          printf '%s\n' "$BADGING"
+          printf '%s\n' "$BADGING" | grep -F "package: name='com.sophiscentral.mobile'"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs artifacts/sophis-central-preview.apk
+
+      - name: Publish inspected APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophis-central-android-preview-apk
+          path: artifacts/sophis-central-preview.apk
+          if-no-files-found: error
+          retention-days: 7
