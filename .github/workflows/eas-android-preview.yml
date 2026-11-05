@@ -1,4 +1,4 @@
-name: Build Sophia Central Android Preview APK
+name: Build Sophis Central Android Preview APK
 
 on:
   workflow_dispatch:
@@ -7,19 +7,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: eas-android-preview
+  group: eas-android-preview-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build-preview:
-    name: Build Android preview APK
+    name: Validate, build, and inspect Android preview APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Check out main
+      - name: Check out selected branch
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -35,11 +33,15 @@ jobs:
             exit 1
           fi
 
-      - name: Install app dependencies
+      - name: Install declared dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
-      - name: Verify Expo configuration
+      - name: Verify SDK dependency alignment (no mutation)
+        run: npx expo install --check
+
+      - name: Validate TypeScript and Expo configuration
         run: |
+          npm run typecheck
           npx expo config --type public
           npx expo-doctor
 
@@ -47,3 +49,58 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait
+
+      - name: Resolve this commit's completed EAS build
+        id: eas-build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@latest build:list --platform android --status finished --git-commit-hash "$GITHUB_SHA" --limit 1 --json > eas-builds.json
+          BUILD_ID="$(jq -r '.[0].id // empty' eas-builds.json)"
+          if [ -z "$BUILD_ID" ]; then
+            echo "::error::No completed EAS Android build found for commit $GITHUB_SHA"
+            cat eas-builds.json
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact EAS APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          BUILD_ID="${{ steps.eas-build.outputs.build_id }}"
+          # EAS CLI prints the exact destination after a successful download.
+          # Capture that path instead of recursively searching all of /tmp,
+          # which can fail on protected system directories.
+          npx --yes eas-cli@latest build:download --build-id "$BUILD_ID" --non-interactive 2>&1 | tee eas-download.log
+          APK_PATH="$(sed -nE 's/^Build downloaded to (.*\.apk)$/\1/p' eas-download.log | tail -n 1)"
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "::error::EAS completed the download but did not report an accessible APK path for build $BUILD_ID."
+            cat eas-download.log
+            exit 1
+          fi
+          cp "$APK_PATH" artifacts/sophis-central-preview.apk
+          test -s artifacts/sophis-central-preview.apk
+
+      - name: Verify APK archive, package ID, and signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -t artifacts/sophis-central-preview.apk
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -n "$BUILD_TOOLS"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging artifacts/sophis-central-preview.apk)"
+          printf '%s\n' "$BADGING"
+          printf '%s\n' "$BADGING" | grep -F "package: name='com.sophiscentral.mobile'"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs artifacts/sophis-central-preview.apk
+
+      - name: Publish inspected APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophis-central-android-preview-apk
+          path: artifacts/sophis-central-preview.apk
+          if-no-files-found: error
+          retention-days: 7
