@@ -22,7 +22,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Verify Expo token
@@ -51,12 +51,34 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@latest build --platform android --profile preview --non-interactive --wait
 
-      - name: Download the exact latest completed Android build
+      - name: Resolve this commit's completed EAS build
+        id: eas-build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          set -euo pipefail
+          npx --yes eas-cli@latest build:list --platform android --status finished --git-commit-hash "$GITHUB_SHA" --limit 1 --json > eas-builds.json
+          BUILD_ID="$(jq -r '.[0].id // empty' eas-builds.json)"
+          if [ -z "$BUILD_ID" ]; then
+            echo "::error::No completed EAS Android build found for commit $GITHUB_SHA"
+            cat eas-builds.json
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact EAS APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
           mkdir -p artifacts
-          npx --yes eas-cli@latest build:download --latest --platform android --path artifacts/sophis-central-preview.apk
+          npx --yes eas-cli@latest build:download --build-id "${{ steps.eas-build.outputs.build_id }}" --non-interactive
+          APK_PATH="$(find . -maxdepth 3 -type f -name '*.apk' -not -path './artifacts/*' -print -quit)"
+          if [ -z "$APK_PATH" ]; then
+            echo "::error::EAS download completed but no APK file was found."
+            exit 1
+          fi
+          cp "$APK_PATH" artifacts/sophis-central-preview.apk
           test -s artifacts/sophis-central-preview.apk
 
       - name: Verify APK archive, package ID, and signing certificate
