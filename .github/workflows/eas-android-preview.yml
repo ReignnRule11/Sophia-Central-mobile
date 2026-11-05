@@ -72,11 +72,14 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           BUILD_ID="${{ steps.eas-build.outputs.build_id }}"
-          npx --yes eas-cli@latest build:download --build-id "$BUILD_ID" --non-interactive
-          APK_PATH="$(find /tmp -type f -name "*${BUILD_ID}*.apk" -print -quit)"
-          if [ -z "$APK_PATH" ]; then
-            echo "::error::EAS downloaded build $BUILD_ID but its APK was not found in the runner temp directory."
-            find /tmp -type f -name '*.apk' -print || true
+          # EAS CLI prints the exact destination after a successful download.
+          # Capture that path instead of recursively searching all of /tmp,
+          # which can fail on protected system directories.
+          npx --yes eas-cli@latest build:download --build-id "$BUILD_ID" --non-interactive 2>&1 | tee eas-download.log
+          APK_PATH="$(sed -nE 's/^Build downloaded to (.*\.apk)$/\1/p' eas-download.log | tail -n 1)"
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "::error::EAS completed the download but did not report an accessible APK path for build $BUILD_ID."
+            cat eas-download.log
             exit 1
           fi
           cp "$APK_PATH" artifacts/sophis-central-preview.apk
